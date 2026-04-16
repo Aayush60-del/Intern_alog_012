@@ -19,29 +19,32 @@ def _cache_key(lat, lon):
     return (round(float(lat), 3), round(float(lon), 3))
 
 
-import requests
-
 def reverse_geocode(lat, lon):
-    url = "https://nominatim.openstreetmap.org/reverse"
+    key = _cache_key(lat, lon)
+    if key in _geocode_cache:
+        return _geocode_cache[key]
 
     params = {
         "lat": lat,
         "lon": lon,
         "format": "json",
-        "addressdetails": 1
+        "addressdetails": 1,
+        "zoom": 18,
     }
 
     headers = {
-        "User-Agent": "cemetery-app"
+        "User-Agent": "CemeteryDataSystem/1.0",
+        "Accept-Language": "en",
     }
 
     try:
-        response = requests.get(url, params=params, headers=headers)
+        response = requests.get(NOMINATIM_URL, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
         data = response.json()
 
         address = data.get("address", {})
 
-        return {
+        result = {
             "city": (
                 address.get("city")
                 or address.get("town")
@@ -51,8 +54,10 @@ def reverse_geocode(lat, lon):
             ),
             "county": address.get("county", ""),
             "zip_code": address.get("postcode", ""),
-            "address": data.get("display_name", "")
+            "address": data.get("display_name", ""),
         }
+        _geocode_cache[key] = result
+        return result
 
     except Exception as e:
         print("Geo error:", e)

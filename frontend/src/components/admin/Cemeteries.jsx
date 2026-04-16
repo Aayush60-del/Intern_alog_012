@@ -230,22 +230,22 @@ export default function Cemeteries() {
       </div>
 
       {/* ── Table ── */}
-      <div className="border border-[#1e1e1e] rounded-xl overflow-hidden">
-        <table className="w-full text-xs">
+      <div className="border border-[#1e1e1e] rounded-xl overflow-x-auto">
+        <table className="w-full min-w-[980px] text-xs">
           <thead>
             <tr className="bg-[#0e0e0e] border-b border-[#1e1e1e]">
               <th className="w-8 px-4 py-3"><input type="checkbox" className="accent-amber-500 w-3 h-3" /></th>
-              {['Name','Location','County','Type','Completeness','Status','Actions'].map(h => (
+              {['Name','Location','County','Phone','Website','Type','Completeness','Status','Actions'].map(h => (
                 <th key={h} className="px-3 py-3 text-left text-[10px] font-semibold tracking-widest uppercase text-[#3a3a3a]">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="text-center py-8 text-[#3a3a3a]">Loading…</td></tr>
+              <tr><td colSpan={10} className="text-center py-8 text-[#3a3a3a]">Loading…</td></tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-[#3a3a3a]">
+                <td colSpan={10} className="text-center py-12 text-[#3a3a3a]">
                   <div className="text-4xl mb-3">🪦</div>
                   <p className="mb-1 text-[#5a5550] font-medium">No records yet</p>
                   <p className="text-[11px] mb-4 text-[#3a3a3a]">Use the Data Collection pipeline to auto-import cemeteries via OSM → saves to MongoDB Atlas.</p>
@@ -263,8 +263,21 @@ export default function Cemeteries() {
                 <tr key={c._id || i} className="border-b border-[#0e0e0e] hover:bg-[#0e0e0e] transition-colors">
                   <td className="px-4 py-2.5"><input type="checkbox" className="accent-amber-500 w-3 h-3" /></td>
                   <td className="px-3 py-2.5 font-medium text-[#e8e4dc] max-w-[160px] truncate">{c.name}</td>
-                  <td className="px-3 py-2.5 text-[#5a5550]">{[c.city, c.state].filter(Boolean).join(', ') || '—'}</td>
-                  <td className="px-3 py-2.5 text-[#5a5550]">{c.county || '—'}</td>
+                  <td className="px-3 py-2.5 text-[#5a5550]">{[c.city || c.county || 'Unknown', c.state || 'Unknown'].filter(Boolean).join(', ')}</td>
+                  <td className="px-3 py-2.5 text-[#5a5550]">{c.county || 'Unknown'}</td>
+                  <td className="px-3 py-2.5 text-[#5a5550]">{c.phone || 'Not Available'}</td>
+                  <td className="px-3 py-2.5 text-[#5a5550]">
+                    {c.website ? (
+                      <a
+                        href={c.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline hover:text-[#a09a8e] transition-colors"
+                      >
+                        Open
+                      </a>
+                    ) : 'Not Available'}
+                  </td>
                   <td className="px-3 py-2.5">{typeBadge(c.type)}</td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">

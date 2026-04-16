@@ -9,6 +9,44 @@ OVERPASS_URLS = [
     "https://overpass.kumi.systems/api/interpreter"
 ]
 
+
+def fallback_google_search_link(cemetery):
+    name = cemetery.get("name") or "Cemetery"
+    location_hint = cemetery.get("city") or cemetery.get("county") or cemetery.get("state") or "United States"
+    query = "+".join(
+        str(part).strip().replace(" ", "+")
+        for part in (name, location_hint, "cemetery")
+        if part
+    )
+    return f"https://www.google.com/search?q={query}"
+
+
+def city_from_address_parts(address_text):
+    if not address_text:
+        return ""
+    parts = [part.strip() for part in str(address_text).split(",") if part.strip()]
+    for part in parts:
+        if any(char.isdigit() for char in part):
+            continue
+        lowered = part.lower()
+        if lowered in {"united states", "usa"}:
+            continue
+        if len(part) <= 2:
+            continue
+        return part
+    return ""
+
+
+def clean_display_address(address_text):
+    if not address_text:
+        return ""
+    parts = [part.strip() for part in str(address_text).split(",") if part.strip()]
+    if len(parts) >= 4:
+        return ", ".join(parts[:3])
+    if len(parts) >= 3:
+        return ", ".join(parts[:3])
+    return ", ".join(parts[:2]) if len(parts) >= 2 else (parts[0] if parts else "")
+
 # 🔥 All US States List
 STATE_NAMES = [
     "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
@@ -173,22 +211,28 @@ def fetch_cemeteries_by_state(state_name, enrich_address=False):
                 time.sleep(1.2)
 
                 if geo_data:
-                    # 🔥 CITY FALLBACK FROM ADDRESS STRING
-                    if not cemetery.get('city') and cemetery.get('address'):
-                        parts = cemetery['address'].split(',')
-                        if len(parts) >= 3:
-                            cemetery['city'] = parts[2].strip()
-                    cemetery['county'] = geo_data.get('county', '')
-                    cemetery['zip_code'] = geo_data.get('zip_code', '')
-                    full_address = geo_data.get('address', '')
+                    if geo_data.get('city'):
+                        cemetery['city'] = geo_data.get('city', '')
+                    elif not cemetery.get('city'):
+                        cemetery['city'] = city_from_address_parts(cemetery.get('address', ''))
 
+                    if geo_data.get('county'):
+                        cemetery['county'] = geo_data.get('county', '')
+                    if geo_data.get('zip_code'):
+                        cemetery['zip_code'] = geo_data.get('zip_code', '')
+
+                    full_address = geo_data.get('address', '')
                     if full_address:
-                        cemetery['address'] = full_address.split(",")[1:4]  # clean part
-                        cemetery['address'] = ", ".join(cemetery['address'])
-                    
-                # 🔥 WEBSITE FALLBACK
+                        cemetery['address'] = clean_display_address(full_address)
+
+            if not cemetery.get('city'):
+                cemetery['city'] = cemetery.get('county') or "Unknown"
+            if not cemetery.get('phone'):
+                cemetery['phone'] = "Not Available"
+            if not cemetery.get('opening_hours'):
+                cemetery['opening_hours'] = "Not Available"
             if not cemetery.get('website'):
-                cemetery['website'] = f"https://www.google.com/search?q={cemetery['name'].replace(' ', '+')}"
+                cemetery['website'] = fallback_google_search_link(cemetery)
 
             cemeteries.append(cemetery)
 

@@ -26,8 +26,6 @@ from services.google_service import enrich_with_google
 
 MONGO_URI = os.getenv("MONGO_URI")
 
-print("Using Mongo URI:", MONGO_URI)
-
 
 def get_collection():
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=10000)
@@ -41,12 +39,15 @@ def process_state(state_name, enrich=False, collection=None, limit=None):
     print(f"  Processing: {state_name}")
     print(f"{'='*60}")
 
+    # 🔥 Safety cap for batch size (performance control)
+    max_items = limit or 50
+
     try:
         cemeteries = fetch_cemeteries_by_state(state_name, enrich_address=True)
 
         # 🔥 Apply limit early
-        if limit:
-            cemeteries = cemeteries[:limit]
+        if max_items:
+            cemeteries = cemeteries[:max_items]
 
     except Exception as e:
         print(f"[ERROR] Failed to fetch {state_name}: {e}")
@@ -85,19 +86,35 @@ def process_state(state_name, enrich=False, collection=None, limit=None):
 
                     time.sleep(0.3)
 
-            # 🔥 UPSERT (avoid duplicates)
-            result = collection.update_one(
-            {
-                'osm_id': cemetery['osm_id']  # ✅ UNIQUE ID (BEST)
-            },
-            {'$setOnInsert': cemetery},
-            upsert=True
-        )
+            # 🔥 Final completeness fallbacks
+            if not cemetery.get('city'):
+                cemetery['city'] = cemetery.get('county') or "Unknown"
+            if not cemetery.get('phone'):
+                cemetery['phone'] = "Not Available"
+            if not cemetery.get('opening_hours'):
+                cemetery['opening_hours'] = "Not Available"
+            if not cemetery.get('website'):
+                # Fallback: Google search link
+                name = cemetery.get('name') or "Cemetery"
+                city = cemetery.get('city') or cemetery.get('county') or cemetery.get('state') or ""
+                query_parts = [name, city, "cemetery"]
+                query = "+".join(part.replace(" ", "+") for part in query_parts if part)
+                cemetery['website'] = f"https://www.google.com/search?q={query}"
 
-            if result.upserted_id:
-                inserted += 1
-            else:
+            # 🔥 UPSERT (avoid duplicates) using osm_id as unique key
+            if not cemetery.get('osm_id'):
                 skipped += 1
+            else:
+                result = collection.update_one(
+                    {'osm_id': cemetery['osm_id']},
+                    {'$set': cemetery},
+                    upsert=True,
+                )
+
+                if result.upserted_id:
+                    inserted += 1
+                else:
+                    skipped += 1
 
             # 🔥 Progress log
             if (inserted + skipped) % 50 == 0:
@@ -123,7 +140,7 @@ def main():
 
     enrich = args.enrich and not args.no_enrich
 
-    print("🪦 Cemetery Data Collection Pipeline")
+    print("Cemetery Data Collection Pipeline")
     print(f"   MongoDB: {MONGO_URI[:40]}...")
     print(f"   Google enrichment: {'ON' if enrich else 'OFF'}")
 
@@ -141,7 +158,7 @@ def main():
             total_skipped += skip
             time.sleep(2)  # Brief pause between states
 
-        print(f"\n🎉 Complete! Total inserted: {total_inserted}, skipped: {total_skipped}")
+        print(f"\nComplete! Total inserted: {total_inserted}, skipped: {total_skipped}")
 
     elif args.state:
         process_state(args.state, enrich=enrich, collection=collection, limit=args.limit)

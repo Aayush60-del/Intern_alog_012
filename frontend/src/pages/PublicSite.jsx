@@ -121,6 +121,12 @@ function DirectoryTab({ setActiveTab }) {
     setSelectedCounty('')
   }, [selectedCountry])
 
+  useEffect(() => {
+    if (results !== null) {
+      doSearch()
+    }
+  }, [page])
+
   async function doSearch() {
     setLoading(true)
     const p = new URLSearchParams()
@@ -179,7 +185,7 @@ function DirectoryTab({ setActiveTab }) {
       </section>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-3 mb-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-12">
         {[
           { icon: '🏛', value: (stats.total || 147832).toLocaleString(), label: 'Cemeteries' },
           { icon: '🌐', value: '50', label: 'States Covered' },
@@ -280,54 +286,132 @@ function DirectoryTab({ setActiveTab }) {
           {results.length === 0 ? (
             <div className="text-center py-16 text-[#3a3a3a]">No cemeteries found matching your criteria.</div>
           ) : (
-            <div className="border border-[#1e1e1e] rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+            <>
+            <div className="grid grid-cols-1 gap-3 md:hidden">
+              {results.map((c, i) => {
+                const hasLatLon = typeof c.latitude === 'number' && typeof c.longitude === 'number'
+                const mapUrl = hasLatLon
+                  ? `https://www.google.com/maps?q=${c.latitude},${c.longitude}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      [c.name, c.city, c.state].filter(Boolean).join(', ')
+                    )}`
+                const locationLabel = [c.city || c.county || 'Unknown', c.state || 'Unknown'].join(', ')
+                const websiteLabel = c.website ? 'Open Website' : 'Not Available'
+
+                return (
+                  <div key={c._id || i} className="rounded-xl border border-[#1e1e1e] bg-[#111111] p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-base text-[#e8e4dc]">{c.name || 'Unknown Cemetery'}</h3>
+                        <p className="text-xs text-[#a09a8e] mt-1">{locationLabel}</p>
+                      </div>
+                      {statusBadge(c)}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs text-[#a09a8e]">
+                      <div>
+                        <div className="text-[#5a5550] mb-1">County</div>
+                        <div>{c.county || 'Unknown'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[#5a5550] mb-1">ZIP</div>
+                        <div>{c.zip_code || 'Unknown'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[#5a5550] mb-1">Phone</div>
+                        <div>{c.phone || 'Not Available'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[#5a5550] mb-1">Address</div>
+                        <div>{c.address || 'Not Available'}</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        onClick={() => window.open(mapUrl, '_blank', 'noopener,noreferrer')}
+                        className="rounded-lg border border-[#2a2a2a] px-3 py-2 text-xs text-[#e8e4dc] hover:border-gold/40"
+                      >
+                        View on Map
+                      </button>
+                      <button
+                        onClick={() => c.website && window.open(c.website, '_blank', 'noopener,noreferrer')}
+                        disabled={!c.website}
+                        className="rounded-lg border border-[#2a2a2a] px-3 py-2 text-xs text-[#e8e4dc] disabled:opacity-50 hover:border-gold/40"
+                      >
+                        {websiteLabel}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="hidden md:block border border-[#1e1e1e] rounded-xl overflow-x-auto">
+              <table className="w-full min-w-[920px] text-sm">
                 <thead>
                   <tr className="bg-[#111111] border-b border-[#1e1e1e]">
-                    {['Name','Location','Type','Phone','Status','Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold tracking-widest uppercase text-[#3a3a3a]">{h}</th>
+                    {['Name','Location','County','ZIP','Contact','Website','Actions'].map(h => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-[10px] font-semibold tracking-widest uppercase text-[#3a3a3a]"
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((c, i) => (
-                    <tr key={c._id || i} className="border-b border-[#111111] hover:bg-[#0e0e0e] transition-colors">
-                      <td className="px-4 py-3 font-medium text-[#e8e4dc] max-w-[200px] truncate">{c.name}</td>
-                      <td className="px-4 py-3 text-[#a09a8e] text-xs">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[#3a3a3a]">⊙</span>
-                          {[c.county, c.state, c.country || 'United States'].filter(Boolean).join(', ') || '—'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded uppercase tracking-wide
-                          ${c.type === 'public' ? 'bg-sky-500/10 text-sky-400' :
-                            c.type === 'military' ? 'bg-purple-500/10 text-purple-400' :
-                            c.type === 'private' ? 'bg-indigo-500/10 text-indigo-400' :
-                            'bg-amber-500/10 text-amber-400'}`}>
-                          {c.type || 'Unknown'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-[#a09a8e] text-xs">{c.phone || '—'}</td>
-                      <td className="px-4 py-3">{statusBadge(c)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => window.open(c.website || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([c.name, c.city, c.state].filter(Boolean).join(', '))}`, '_blank', 'noopener,noreferrer')}
-                            className="text-[#3a3a3a] hover:text-[#a09a8e] transition-colors"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                          </button>
-                          <button onClick={() => navigator.clipboard.writeText([c.name, c.city, c.state].filter(Boolean).join(', '))} className="text-[#3a3a3a] hover:text-[#a09a8e] transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {results.map((c, i) => {
+                    const hasLatLon = typeof c.latitude === 'number' && typeof c.longitude === 'number'
+                    const mapUrl = hasLatLon
+                      ? `https://www.google.com/maps?q=${c.latitude},${c.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          [c.name, c.city, c.state].filter(Boolean).join(', ')
+                        )}`
+
+                    return (
+                      <tr key={c._id || i} className="border-b border-[#111111] hover:bg-[#0e0e0e] transition-colors">
+                        <td className="px-4 py-3 font-medium text-[#e8e4dc] max-w-[200px] truncate">
+                          {c.name}
+                        </td>
+                        <td className="px-4 py-3 text-[#a09a8e] text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#3a3a3a]">⊙</span>
+                            {[c.city || c.county || 'Unknown', c.state || 'Unknown'].filter(Boolean).join(', ')}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-[#a09a8e] text-xs">{c.county || '—'}</td>
+                        <td className="px-4 py-3 text-[#a09a8e] text-xs">{c.zip_code || '—'}</td>
+                        <td className="px-4 py-3 text-[#a09a8e] text-xs">
+                          {c.phone || 'Not Available'}
+                        </td>
+                        <td className="px-4 py-3 text-[#a09a8e] text-xs">
+                          {c.website ? (
+                            <button
+                              onClick={() => window.open(c.website, '_blank', 'noopener,noreferrer')}
+                              className="underline hover:text-gold transition-colors"
+                            >
+                              Open
+                            </button>
+                          ) : (
+                            'Not Available'
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => window.open(mapUrl, '_blank', 'noopener,noreferrer')}
+                              className="text-[#3a3a3a] hover:text-[#a09a8e] transition-colors text-xs underline"
+                            >
+                              View on Map
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
+            </>
           )}
 
           {/* Pagination */}

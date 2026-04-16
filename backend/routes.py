@@ -38,6 +38,35 @@ def serialize_doc(doc):
 def register_routes(app):
     app.config.setdefault("API_LOGS", deque(maxlen=API_LOG_LIMIT))
 
+    def build_website_fallback(doc):
+        name = (doc.get("name") or "Cemetery").strip()
+        location_hint = (
+            doc.get("city")
+            or doc.get("county")
+            or doc.get("state")
+            or DEFAULT_COUNTRY
+        )
+        query = "+".join(
+            str(part).strip().replace(" ", "+")
+            for part in (name, location_hint, "cemetery")
+            if part
+        )
+        return f"https://www.google.com/search?q={query}"
+
+    def apply_record_fallbacks(doc):
+        clean = dict(doc or {})
+
+        if not clean.get("city"):
+            clean["city"] = clean.get("county") or "Unknown"
+        if not clean.get("phone"):
+            clean["phone"] = "Not Available"
+        if not clean.get("opening_hours"):
+            clean["opening_hours"] = "Not Available"
+        if not clean.get("website"):
+            clean["website"] = build_website_fallback(clean)
+
+        return clean
+
     def settings_collection():
         return get_collection().database[SETTINGS_COLLECTION]
 
@@ -179,6 +208,9 @@ def register_routes(app):
             payload["location"] = {"type": "Point", "coordinates": [lon, lat]}
         elif not partial and ("latitude" in payload or "longitude" in payload):
             payload["location"] = None
+
+        if not partial:
+            payload = apply_record_fallbacks(payload)
 
         return payload
 
@@ -372,7 +404,7 @@ def register_routes(app):
 
         total = collection.count_documents(filters)
         docs = list(collection.find(filters).sort("name", 1).skip(skip).limit(limit))
-        results = [serialize_doc(doc) for doc in docs]
+        results = [apply_record_fallbacks(serialize_doc(doc)) for doc in docs]
 
         return jsonify(
             {
@@ -393,7 +425,7 @@ def register_routes(app):
             return jsonify({"error": "Invalid ID"}), 400
         if not doc:
             return jsonify({"error": "Not found"}), 404
-        return jsonify(serialize_doc(doc))
+        return jsonify(apply_record_fallbacks(serialize_doc(doc)))
 
     @app.route("/api/states", methods=["GET"])
     def get_states():
@@ -568,6 +600,8 @@ def register_routes(app):
                             if cemetery.get(key):
                                 cemetery[key] = str(cemetery[key]).strip()
 
+                    cemetery = apply_record_fallbacks(cemetery)
+
                     query = {}
                     if cemetery.get("osm_id"):
                         query["osm_id"] = cemetery["osm_id"]
@@ -617,6 +651,7 @@ def register_routes(app):
         payload["data_source"] = payload.get("data_source") or "Manual"
         payload["added_by"] = "admin"
         payload["created_at"] = datetime.now(timezone.utc).isoformat()
+        payload = apply_record_fallbacks(payload)
 
         result = collection.insert_one(payload)
         payload["_id"] = str(result.inserted_id)
