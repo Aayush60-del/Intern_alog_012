@@ -7,9 +7,11 @@ export default function Cemeteries() {
   const [countries, setCountries] = useState([])
   const [states, setStates] = useState([])
   const [counties, setCounties] = useState([])
+  const [cities, setCities] = useState([])
   const [selectedCountry, setSelectedCountry] = useState('United States')
   const [selectedState, setSelectedState] = useState('')
   const [selectedCounty, setSelectedCounty] = useState('')
+  const [selectedCity, setSelectedCity] = useState('')
   const [rows, setRows]       = useState([])
   const [search, setSearch]   = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,7 +22,7 @@ export default function Cemeteries() {
   const [total, setTotal]     = useState(0)
   const PAGE = 50
 
-  useEffect(() => { load() }, [page, selectedCountry, selectedState, selectedCounty])
+  useEffect(() => { load() }, [page, selectedCountry, selectedState, selectedCounty, selectedCity])
   useEffect(() => {
     apiFetch('/api/countries')
       .then(r => r.json())
@@ -49,8 +51,21 @@ export default function Cemeteries() {
   }, [selectedCountry, selectedState])
 
   useEffect(() => {
+    if (!selectedState) { setCities([]); setSelectedCity(''); return }
+    const p = new URLSearchParams()
+    if (selectedCountry) p.set('country', selectedCountry)
+    p.set('state', selectedState)
+    if (selectedCounty) p.set('county', selectedCounty)
+    apiFetch(`/api/cities?${p}`)
+      .then(r => r.json())
+      .then(d => setCities(d.cities || []))
+      .catch(() => {})
+  }, [selectedCountry, selectedState, selectedCounty])
+
+  useEffect(() => {
     setSelectedState('')
     setSelectedCounty('')
+    setSelectedCity('')
   }, [selectedCountry])
 
   useEffect(() => {
@@ -66,6 +81,7 @@ export default function Cemeteries() {
     if (selectedCountry) p.set('country', selectedCountry)
     if (selectedState) p.set('state', selectedState)
     if (selectedCounty) p.set('county', selectedCounty)
+    if (selectedCity) p.set('city', selectedCity)
     if (search.trim()) p.set('search', search.trim())
     try {
       const r = await apiFetch(`/api/cemeteries?${p}`, { credentials: 'include' })
@@ -123,24 +139,42 @@ export default function Cemeteries() {
     }
   }
 
-  function exportFile(kind) {
+  async function exportFile(kind) {
     const p = new URLSearchParams()
+    if (selectedCountry) p.set('country', selectedCountry)
+    if (selectedState) p.set('state', selectedState)
+    if (selectedCounty) p.set('county', selectedCounty)
+    if (selectedCity) p.set('city', selectedCity)
     if (search.trim()) p.set('search', search.trim())
-    const query = p.toString()
     const path = kind === 'counties' ? '/api/export/counties.csv' : '/api/export/cemeteries.csv'
-    window.open(`${path}${query ? `?${query}` : ''}`, '_blank', 'noopener,noreferrer')
-    setActionSuccess(kind === 'counties' ? 'County export started.' : 'Full cemetery export started.')
+    try {
+      const res = await apiFetch(`${path}?${p.toString()}`, { credentials: 'include' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'CSV export failed.')
+      }
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = kind === 'counties' ? 'counties_export.csv' : 'cemeteries_export.csv'
+      a.click()
+      window.URL.revokeObjectURL(url)
+      setActionSuccess(kind === 'counties' ? 'County export downloaded.' : 'Cemetery export downloaded.')
+    } catch (err) {
+      setActionError(err.message || 'CSV export failed.')
+    }
   }
 
   return (
     <div>
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-5">
         <div>
           <h1 className="font-display text-2xl font-semibold text-[#e8e4dc]">Cemeteries</h1>
           <p className="text-[#5a5550] text-sm">Auto-collected cemetery records via OSM pipeline → saved to MongoDB Atlas.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => exportFile('counties')}
             className="flex items-center gap-1.5 bg-[#111111] border border-[#2a2a2a] text-[#a09a8e] text-xs px-3 py-2 rounded-lg hover:border-[#3a3a3a] transition-colors"
@@ -193,7 +227,7 @@ export default function Cemeteries() {
           className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg pl-9 pr-4 py-2.5 text-sm text-[#e8e4dc] placeholder-[#3a3a3a] focus:outline-none focus:border-amber-500/40"
         />
       </div>
-      <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-2">
         <select
           value={selectedCountry}
           onChange={e => setSelectedCountry(e.target.value)}
@@ -204,7 +238,7 @@ export default function Cemeteries() {
         </select>
         <select
           value={selectedState}
-          onChange={e => { setSelectedState(e.target.value); setSelectedCounty('') }}
+          onChange={e => { setSelectedState(e.target.value); setSelectedCounty(''); setSelectedCity('') }}
           className="rounded-lg border border-[#1e1e1e] bg-[#111111] px-3 py-2.5 text-sm text-[#e8e4dc] focus:border-amber-500/40 focus:outline-none"
         >
           <option value="">All States</option>
@@ -212,11 +246,19 @@ export default function Cemeteries() {
         </select>
         <select
           value={selectedCounty}
-          onChange={e => setSelectedCounty(e.target.value)}
+          onChange={e => { setSelectedCounty(e.target.value); setSelectedCity('') }}
           className="rounded-lg border border-[#1e1e1e] bg-[#111111] px-3 py-2.5 text-sm text-[#e8e4dc] focus:border-amber-500/40 focus:outline-none"
         >
           <option value="">All Counties</option>
           {counties.map(county => <option key={county} value={county}>{county}</option>)}
+        </select>
+        <select
+          value={selectedCity}
+          onChange={e => setSelectedCity(e.target.value)}
+          className="rounded-lg border border-[#1e1e1e] bg-[#111111] px-3 py-2.5 text-sm text-[#e8e4dc] focus:border-amber-500/40 focus:outline-none"
+        >
+          <option value="">All Cities</option>
+          {cities.map(city => <option key={city} value={city}>{city}</option>)}
         </select>
       </div>
       <div className="mb-4 flex items-center justify-between text-xs text-[#5a5550]">

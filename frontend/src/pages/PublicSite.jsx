@@ -25,15 +25,15 @@ function Navbar({ activeTab, setActiveTab }) {
   ]
   return (
     <header className="sticky top-0 z-50 bg-[#0a0a0a]/95 backdrop-blur border-b border-[#1e1e1e]">
-      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 min-h-14 py-2 flex items-center justify-between gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <button onClick={() => setActiveTab('directory')} className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gold flex items-center justify-center text-[#0a0a0a] text-xs font-bold font-display">CB</div>
           <span className="text-xs font-semibold tracking-[0.18em] uppercase text-[#e8e4dc]">CemeteryBase</span>
-        </div>
+        </button>
 
         {/* Center Tabs */}
-        <nav className="flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1">
           {tabs.map(t => (
             <button
               key={t.id}
@@ -61,7 +61,13 @@ function Navbar({ activeTab, setActiveTab }) {
         </nav>
 
         {/* Right icons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
+          <button
+            onClick={() => setActiveTab('directory')}
+            className="md:hidden px-2 py-1 text-xs font-medium text-[#a09a8e] border border-[#2a2a2a] rounded"
+          >
+            Home
+          </button>
           <button className="text-[#5a5550] hover:text-[#a09a8e] transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -152,7 +158,7 @@ function DirectoryTab({ setActiveTab }) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6">
+    <div className="max-w-7xl mx-auto px-4 md:px-6">
       {/* Hero */}
       <section className="pt-14 pb-10 text-center">
         <div className="inline-flex items-center gap-2 bg-[#161616] border border-[#2a2a2a] rounded-full px-4 py-1.5 mb-8">
@@ -167,7 +173,7 @@ function DirectoryTab({ setActiveTab }) {
         <p className="text-[#a09a8e] text-base max-w-xl mx-auto mb-8 leading-relaxed">
           Verified, structured, nationwide cemetery data — powering research,<br />genealogy, and enterprise operations.
         </p>
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
             onClick={() => document.getElementById('search-section').scrollIntoView({ behavior: 'smooth' })}
             className="flex items-center gap-2 px-6 py-2.5 border border-gold/40 text-gold text-sm font-medium rounded hover:bg-gold/5 transition-colors"
@@ -490,7 +496,7 @@ function InsightsTab() {
       </div>
 
       {/* Two charts */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <div className="bg-[#111111] border border-[#1e1e1e] rounded-xl p-5">
           <h3 className="font-display text-sm font-semibold text-[#a09a8e] uppercase tracking-widest mb-1">Cemeteries by State</h3>
           <p className="text-[#3a3a3a] text-xs mb-4">Top 8 states by total records</p>

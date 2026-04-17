@@ -35,10 +35,10 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
+        <button onClick={() => navigate('/')} className="flex items-center justify-center gap-3 mb-8 w-full">
           <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-[#0a0a0a] font-bold font-display text-sm">CB</div>
           <span className="font-display text-xl font-semibold text-[#e8e4dc]">CemeteryBase</span>
-        </div>
+        </button>
 
         <div className="bg-[#111111] border border-[#1e1e1e] rounded-2xl p-8">
           <h1 className="font-display text-2xl font-semibold text-[#e8e4dc] text-center mb-1">Admin Access</h1>

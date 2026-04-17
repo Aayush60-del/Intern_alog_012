@@ -35,6 +35,7 @@ export default function AdminLayout() {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [authed, setAuthed] = useState(null)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     apiFetch('/api/admin/check', { credentials: 'include' })
@@ -66,21 +67,30 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex">
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className={`${collapsed ? 'w-14' : 'w-52'} bg-[#090909] border-r border-[#161616] flex flex-col transition-all duration-200 shrink-0`}>
+      <aside className={`w-full ${collapsed ? 'md:w-14' : 'md:w-52'} bg-[#090909] border-b md:border-b-0 md:border-r border-[#161616] flex flex-col transition-all duration-200 shrink-0`}>
         {/* Logo */}
-        <div className={`flex items-center gap-2.5 px-4 py-4 border-b border-[#161616] ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-7 h-7 rounded-full bg-gold flex items-center justify-center text-[#0a0a0a] font-bold font-display text-xs shrink-0">CB</div>
-          {!collapsed && <span className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#5a5550]">CemeteryBase</span>}
+        <div className={`flex items-center justify-between gap-2.5 px-4 py-4 border-b border-[#161616]`}>
+          <button onClick={() => navigate('/')} className={`flex items-center gap-2.5 ${collapsed ? 'justify-center' : ''}`}>
+            <div className="w-7 h-7 rounded-full bg-gold flex items-center justify-center text-[#0a0a0a] font-bold font-display text-xs shrink-0">CB</div>
+            {!collapsed && <span className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#5a5550]">CemeteryBase</span>}
+          </button>
+          <button
+            onClick={() => setMobileNavOpen(v => !v)}
+            className="md:hidden text-[#5a5550] hover:text-[#a09a8e]"
+            aria-label="Toggle navigation"
+          >
+            ☰
+          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-2 py-3 space-y-0.5">
+        <nav className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-1 px-2 py-3 md:space-y-0.5 gap-1 md:gap-0 overflow-x-auto md:overflow-visible`}>
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => navigate(item.path)}
+              onClick={() => { navigate(item.path); setMobileNavOpen(false) }}
               className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg transition-colors text-left ${
                 isActive(item.path)
                   ? 'bg-gold/10 text-gold'
@@ -94,7 +104,7 @@ export default function AdminLayout() {
         </nav>
 
         {/* Footer */}
-        <div className="px-2 py-3 border-t border-[#161616] space-y-0.5">
+        <div className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex px-2 py-3 border-t border-[#161616] space-y-0.5 md:space-y-0.5 gap-1 md:gap-0 flex-wrap`}>
           <button
             onClick={() => navigate('/')}
             className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-[#3a3a3a] hover:text-[#5a5550] hover:bg-[#111111] transition-colors"
@@ -113,7 +123,7 @@ export default function AdminLayout() {
           </button>
           <button
             onClick={() => setCollapsed(c => !c)}
-            className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-[#3a3a3a] hover:text-[#5a5550] hover:bg-[#111111] transition-colors"
+            className="hidden md:flex w-full items-center gap-3 px-2.5 py-2 rounded-lg text-[#3a3a3a] hover:text-[#5a5550] hover:bg-[#111111] transition-colors"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={collapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"}/>
@@ -125,7 +135,7 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <div className="max-w-5xl mx-auto px-8 py-8">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">
           <Routes>
             <Route index element={<Overview />} />
             <Route path="cemeteries" element={<Cemeteries />} />

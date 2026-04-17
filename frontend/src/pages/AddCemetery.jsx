@@ -19,6 +19,67 @@ const EMPTY = {
   phone: '', website: '', type: '', opening_hours: '', notes: '',
 }
 
+const SCHEDULE_DAYS = [
+  { key: 'mon', label: 'Monday' },
+  { key: 'tue', label: 'Tuesday' },
+  { key: 'wed', label: 'Wednesday' },
+  { key: 'thu', label: 'Thursday' },
+  { key: 'fri', label: 'Friday' },
+  { key: 'sat', label: 'Saturday' },
+]
+
+function emptySchedule() {
+  return SCHEDULE_DAYS.reduce((acc, day) => {
+    acc[day.key] = { closed: true, open: '09:00', close: '17:00' }
+    return acc
+  }, {})
+}
+
+function parseOpeningHoursToSchedule(openingHours) {
+  const schedule = emptySchedule()
+  if (!openingHours || typeof openingHours !== 'string') return schedule
+
+  const segments = openingHours
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
+
+  const keyMap = {
+    mon: 'mon', monday: 'mon',
+    tue: 'tue', tues: 'tue', tuesday: 'tue',
+    wed: 'wed', wednesday: 'wed',
+    thu: 'thu', thur: 'thu', thurs: 'thu', thursday: 'thu',
+    fri: 'fri', friday: 'fri',
+    sat: 'sat', saturday: 'sat',
+  }
+
+  segments.forEach(segment => {
+    const [dayRaw, hoursRaw] = segment.split(':').map(x => (x || '').trim())
+    if (!dayRaw) return
+    const dayKey = keyMap[dayRaw.toLowerCase()]
+    if (!dayKey || !hoursRaw) return
+
+    if (hoursRaw.toLowerCase() === 'closed') {
+      schedule[dayKey] = { ...schedule[dayKey], closed: true }
+      return
+    }
+
+    const [open, close] = hoursRaw.split('-').map(x => (x || '').trim())
+    if (!open || !close) return
+    schedule[dayKey] = { closed: false, open, close }
+  })
+
+  return schedule
+}
+
+function scheduleToOpeningHours(schedule) {
+  return SCHEDULE_DAYS.map(({ key, label }) => {
+    const day = schedule[key]
+    if (!day || day.closed) return `${label}: Closed`
+    return `${label}: ${day.open}-${day.close}`
+  }).join('; ')
+}
+
 export default function AddCemetery() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -28,6 +89,7 @@ export default function AddCemetery() {
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
   const [success, setSuccess] = useState(false)
+  const [openingSchedule, setOpeningSchedule] = useState(emptySchedule())
 
   useEffect(() => {
     if (!isEdit) return
@@ -41,12 +103,14 @@ export default function AddCemetery() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load cemetery')
         if (!ignore) {
+          const parsedSchedule = parseOpeningHoursToSchedule(data.opening_hours)
           setForm({
             ...EMPTY,
             ...data,
             latitude: data.latitude ?? '',
             longitude: data.longitude ?? '',
           })
+          setOpeningSchedule(parsedSchedule)
         }
       } catch (err) {
         if (!ignore) setError(err.message || 'Failed to load cemetery')
@@ -62,6 +126,13 @@ export default function AddCemetery() {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   }
 
+  function updateSchedule(dayKey, field, value) {
+    setOpeningSchedule(prev => ({
+      ...prev,
+      [dayKey]: { ...prev[dayKey], [field]: value }
+    }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -70,10 +141,11 @@ export default function AddCemetery() {
 
     setSaving(true)
     try {
+      const opening_hours = scheduleToOpeningHours(openingSchedule)
       const res = await apiFetch(isEdit ? `/api/cemeteries/${id}` : '/api/cemeteries', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, opening_hours }),
         credentials: 'include',
       })
       const data = await res.json()
@@ -121,7 +193,7 @@ export default function AddCemetery() {
   return (
     <div className="min-h-screen bg-[#080808]">
       {/* ── Top bar ── */}
-      <div className="sticky top-0 z-10 bg-[#080808]/95 backdrop-blur border-b border-[#161616] px-8 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-[#080808]/95 backdrop-blur border-b border-[#161616] px-4 md:px-8 py-3 flex flex-col md:flex-row gap-3 md:gap-0 md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/admin/cemeteries')}
@@ -163,7 +235,7 @@ export default function AddCemetery() {
       </div>
 
       {/* ── Body ── */}
-      <div className="max-w-4xl mx-auto px-8 py-10">
+      <div className="max-w-4xl mx-auto px-4 md:px-8 py-6 md:py-10">
 
         {/* Success banner */}
         {success && (
@@ -198,7 +270,7 @@ export default function AddCemetery() {
               </p>
               <div className="space-y-4">
                 <Field label="Cemetery Name" name="name" required placeholder="e.g. Oakwood Cemetery" />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Country" name="country" placeholder="United States" />
                   <Field label="Type" name="type">
                     <select id="f-type" name="type" value={form.type} onChange={set} className={inp}>
@@ -219,7 +291,7 @@ export default function AddCemetery() {
                 Location
               </p>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="State" name="state" required>
                     <select id="f-state" name="state" value={form.state} onChange={set} className={inp} required>
                       <option value="">— Select state —</option>
@@ -243,7 +315,60 @@ export default function AddCemetery() {
               <div className="space-y-4">
                 <Field label="Phone" name="phone" placeholder="e.g. (512) 472-5100" />
                 <Field label="Website" name="website" placeholder="https://..." />
-                <Field label="Opening Hours" name="opening_hours" placeholder="e.g. Mon–Sun 8am–5pm" />
+                <div>
+                  <label className={lbl}>Opening Hours (24-hour format)</label>
+                  <div className="overflow-x-auto rounded-xl border border-[#1a1a1a]">
+                    <table className="w-full min-w-[540px] text-xs">
+                      <thead className="bg-[#101010]">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Day</th>
+                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Open</th>
+                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Close</th>
+                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Closed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {SCHEDULE_DAYS.map(({ key, label }) => {
+                          const day = openingSchedule[key]
+                          return (
+                            <tr key={key} className="border-t border-[#1a1a1a]">
+                              <td className="px-3 py-2 text-[#a09a8e]">{label}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="time"
+                                  value={day.open}
+                                  disabled={day.closed}
+                                  onChange={e => updateSchedule(key, 'open', e.target.value)}
+                                  className={`${inp} py-2`}
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="time"
+                                  value={day.close}
+                                  disabled={day.closed}
+                                  onChange={e => updateSchedule(key, 'close', e.target.value)}
+                                  className={`${inp} py-2`}
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <label className="inline-flex items-center gap-2 text-[#a09a8e]">
+                                  <input
+                                    type="checkbox"
+                                    checked={day.closed}
+                                    onChange={e => updateSchedule(key, 'closed', e.target.checked)}
+                                    className="accent-amber-500"
+                                  />
+                                  Closed
+                                </label>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
 
