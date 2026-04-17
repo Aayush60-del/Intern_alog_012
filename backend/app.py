@@ -49,13 +49,15 @@ def create_app():
     )
 
     configured_origins = [origin.strip() for origin in os.environ.get("FRONTEND_ORIGIN", "").split(",") if origin.strip()]
-    if not configured_origins:
-        # Safe defaults: local dev + any Vercel deployment domain.
-        configured_origins = [
-            "http://localhost:5173",
-            "http://localhost:3000",
-            r"https://.*\.vercel\.app",
-        ]
+    # Always keep robust defaults so Vercel preview links work too.
+    default_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        r"https://.*\.vercel\.app",
+    ]
+    for origin in default_origins:
+        if origin not in configured_origins:
+            configured_origins.append(origin)
 
     CORS(
         app,
