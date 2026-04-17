@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { apiFetch } from '../../lib/api'
 
 const US_STATES = [
   'California','Texas','New York','Florida','Pennsylvania',
@@ -31,7 +32,7 @@ export default function DataCollection() {
   }, [logs])
 
   useEffect(() => {
-    fetch('/api/admin/settings', { credentials: 'include' })
+    apiFetch('/api/admin/settings', { credentials: 'include' })
       .then(async res => {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load settings')
@@ -65,7 +66,7 @@ export default function DataCollection() {
       if (googleEnrich) addLog(`Connecting to Google Places API...`, 'info')
 
       try {
-        const res = await fetch('/api/collect', {
+        const res = await apiFetch('/api/collect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ state, enrich: googleEnrich, auto_clean: autoClean, limit }),

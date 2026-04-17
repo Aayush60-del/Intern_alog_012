@@ -3,7 +3,7 @@
  * Stats, cemetery table, data collection.
  */
 
-const API_BASE = 'https://intern-alog-012.onrender.com';
+const API_BASE = '';
 let adminCurrentPage = 0;
 let adminTotal = 0;
 let adminStates = [];

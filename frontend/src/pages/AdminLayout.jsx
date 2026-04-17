@@ -7,6 +7,7 @@ import Analytics from '../components/admin/Analytics'
 import Settings from '../components/admin/Settings'
 import ApiLogs from '../components/admin/ApiLogs'
 import AddCemetery from './AddCemetery'
+import { apiFetch } from '../lib/api'
 
 const navItems = [
   { id: 'overview', label: 'Overview', path: '/admin', icon: (
@@ -36,7 +37,7 @@ export default function AdminLayout() {
   const [authed, setAuthed] = useState(null)
 
   useEffect(() => {
-    fetch('/api/admin/check', { credentials: 'include' })
+    apiFetch('/api/admin/check', { credentials: 'include' })
       .then(async r => {
         const data = await r.json()
         setAuthed(Boolean(data.authenticated))
@@ -45,7 +46,7 @@ export default function AdminLayout() {
   }, [])
 
   async function logout() {
-    await fetch('/admin/logout', { credentials: 'include' })
+    await apiFetch('/admin/logout', { credentials: 'include' })
     navigate('/admin/login')
   }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../../lib/api'
 
 export default function Cemeteries() {
   const navigate = useNavigate()
@@ -21,7 +22,7 @@ export default function Cemeteries() {
 
   useEffect(() => { load() }, [page, selectedCountry, selectedState, selectedCounty])
   useEffect(() => {
-    fetch('/api/countries')
+    apiFetch('/api/countries')
       .then(r => r.json())
       .then(d => setCountries(d.countries || []))
       .catch(() => {})
@@ -30,7 +31,7 @@ export default function Cemeteries() {
   useEffect(() => {
     const p = new URLSearchParams()
     if (selectedCountry) p.set('country', selectedCountry)
-    fetch(`/api/states?${p}`)
+    apiFetch(`/api/states?${p}`)
       .then(r => r.json())
       .then(d => setStates(d.states || []))
       .catch(() => {})
@@ -41,7 +42,7 @@ export default function Cemeteries() {
     const p = new URLSearchParams()
     if (selectedCountry) p.set('country', selectedCountry)
     p.set('state', selectedState)
-    fetch(`/api/counties?${p}`)
+    apiFetch(`/api/counties?${p}`)
       .then(r => r.json())
       .then(d => setCounties(d.counties || []))
       .catch(() => {})
@@ -67,7 +68,7 @@ export default function Cemeteries() {
     if (selectedCounty) p.set('county', selectedCounty)
     if (search.trim()) p.set('search', search.trim())
     try {
-      const r = await fetch(`/api/cemeteries?${p}`, { credentials: 'include' })
+      const r = await apiFetch(`/api/cemeteries?${p}`, { credentials: 'include' })
       const d = await r.json()
       setRows(d.data || [])
       setTotal(d.total || 0)
@@ -106,7 +107,7 @@ export default function Cemeteries() {
     setBusyId(id)
     setActionError('')
     setActionSuccess('')
-    const res = await fetch(`/api/cemeteries/${id}`, { method: 'DELETE', credentials: 'include' })
+    const res = await apiFetch(`/api/cemeteries/${id}`, { method: 'DELETE', credentials: 'include' })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       setActionError(data.error || 'Delete failed.')

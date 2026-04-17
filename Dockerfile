@@ -25,4 +25,4 @@ WORKDIR /app
 EXPOSE 5000
 
 # Production: run with gunicorn (4 workers)
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "--timeout", "120", "backend.wsgi:app"]
+CMD ["sh", "-c", "gunicorn -w 2 -b 0.0.0.0:${PORT:-5000} --timeout 120 backend.wsgi:app"]

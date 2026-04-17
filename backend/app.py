@@ -3,12 +3,19 @@ app.py - Flask application factory.
 Serves React SPA (dist/) for all non-API routes.
 """
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import os
 
-load_dotenv()
+_root_env = find_dotenv(usecwd=True)
+if _root_env:
+    load_dotenv(_root_env, override=False)
 
-from flask import Flask, send_from_directory
+# Also load `backend/.env` when running from repo root or elsewhere.
+_backend_env = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(_backend_env):
+    load_dotenv(_backend_env, override=False)
+
+from flask import Flask, send_from_directory, request
 from flask_cors import CORS
 try:
     from backend.db import init_db
@@ -29,7 +36,21 @@ def create_app():
         static_url_path=''
     )
     app.secret_key = os.environ.get('SECRET_KEY', 'cemetery-dev-secret-change-in-prod')
-    CORS(app, supports_credentials=True)
+
+    # Cookie settings required when frontend and backend are on different domains (Vercel ↔ Render).
+    # In production (HTTPS), cookies must be Secure + SameSite=None to be sent cross-site.
+    app.config.setdefault("SESSION_COOKIE_SAMESITE", os.environ.get("SESSION_COOKIE_SAMESITE", "Lax"))
+    app.config.setdefault("SESSION_COOKIE_SECURE", os.environ.get("SESSION_COOKIE_SECURE", "").lower() == "true")
+
+    allowed_origins = [
+        origin.strip()
+        for origin in os.environ.get("FRONTEND_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+    if allowed_origins:
+        CORS(app, supports_credentials=True, origins=allowed_origins)
+    else:
+        CORS(app, supports_credentials=True)
 
     try:
         init_db(app)
@@ -37,6 +58,20 @@ def create_app():
         print(f"[WARN] DB init failed: {e}")
 
     register_routes(app)
+
+    try:
+        from backend.db import DatabaseNotReadyError
+
+        @app.errorhandler(DatabaseNotReadyError)
+        def _db_not_ready(err):
+            # Keep API behavior predictable when Mongo isn't configured/available.
+            if (getattr(request, "path", "") or "").startswith("/api/"):
+                return {"error": str(err)}, 503
+            return str(err), 503
+
+    except Exception:
+        # If db module import fails, don't block app startup.
+        pass
 
     # Catch-all: serve React index.html for any non-API route
     @app.route('/', defaults={'path': ''})

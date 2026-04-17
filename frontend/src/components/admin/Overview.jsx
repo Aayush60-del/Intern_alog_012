@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js'
 import { Bar, Line } from 'react-chartjs-2'
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler, Tooltip, Legend)
+import { apiFetch } from '../../lib/api'
 
 export default function Overview() {
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
-    fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {})
+    apiFetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {})
   }, [])
 
   const topStates = stats?.top_states?.slice(0, 5) || []
@@ -22,9 +23,9 @@ export default function Overview() {
   }
 
   const lineData = {
-    labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    labels: ['Records'],
     datasets: [{
-      data: [420, 580, 850, 1250, 1100, 680, 520],
+      data: [stats?.total ?? 0],
       borderColor: '#c9a84c',
       backgroundColor: 'rgba(201,168,76,0.08)',
       fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#c9a84c',
@@ -41,10 +42,10 @@ export default function Overview() {
   }
 
   const statCards = [
-    { label: 'Total Cemeteries', value: (stats?.total || 147832).toLocaleString(), delta: '+2.4%', up: true, icon: '🏛' },
-    { label: 'Data Completeness', value: '68.2%', delta: '+1.1%', up: true, icon: '📊' },
-    { label: 'Missing Fields', value: (stats?.total ? Math.floor(stats.total * 0.16) : 23481).toLocaleString(), delta: '-3.2%', up: false, icon: '⚠️' },
-    { label: 'Last Sync', value: '2h ago', delta: 'Running', up: true, icon: '🕒', isRunning: true },
+    { label: 'Total Cemeteries', value: (stats?.total ?? 0).toLocaleString(), delta: 'Live', up: true, icon: '🏛' },
+    { label: 'Verified Contacts', value: (stats?.with_phone ?? 0).toLocaleString(), delta: 'Live', up: true, icon: '📞' },
+    { label: 'With Website', value: (stats?.with_website ?? 0).toLocaleString(), delta: 'Live', up: true, icon: '🌐' },
+    { label: 'With Address', value: (stats?.with_address ?? 0).toLocaleString(), delta: 'Live', up: true, icon: '📍' },
   ]
 
   const recentActivity = [

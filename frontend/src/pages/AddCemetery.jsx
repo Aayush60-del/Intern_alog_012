@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 
 const US_STATES = [
   'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
@@ -36,7 +37,7 @@ export default function AddCemetery() {
       setLoading(true)
       setError('')
       try {
-        const res = await fetch(`/api/cemeteries/${id}`, { credentials: 'include' })
+        const res = await apiFetch(`/api/cemeteries/${id}`, { credentials: 'include' })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load cemetery')
         if (!ignore) {
@@ -69,7 +70,7 @@ export default function AddCemetery() {
 
     setSaving(true)
     try {
-      const res = await fetch(isEdit ? `/api/cemeteries/${id}` : '/api/cemeteries', {
+      const res = await apiFetch(isEdit ? `/api/cemeteries/${id}` : '/api/cemeteries', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

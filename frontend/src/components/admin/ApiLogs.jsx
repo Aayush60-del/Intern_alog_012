@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { apiFetch } from '../../lib/api'
 
 export default function ApiLogs() {
   const [logs, setLogs] = useState([])
@@ -8,7 +9,7 @@ export default function ApiLogs() {
   async function loadLogs() {
     setLoading(true)
     setError('')
-    fetch('/api/admin/logs?limit=100', { credentials: 'include' })
+    apiFetch('/api/admin/logs?limit=100', { credentials: 'include' })
       .then(async res => {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load API logs')

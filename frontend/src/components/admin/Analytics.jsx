@@ -5,13 +5,14 @@ import {
 } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+import { apiFetch } from '../../lib/api'
 
 export default function Analytics() {
   const [analytics, setAnalytics] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/analytics', { credentials: 'include' })
+    apiFetch('/api/admin/analytics', { credentials: 'include' })
       .then(async res => {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load analytics')

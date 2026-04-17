@@ -8,7 +8,7 @@ import { Bar, Doughnut, Line } from 'react-chartjs-2'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Filler, Tooltip, Legend)
 
-const API = import.meta.env.VITE_API_BASE || ''
+import { apiFetch } from '../lib/api'
 
 function esc(str) {
   if (!str) return ''
@@ -80,7 +80,7 @@ function Navbar({ activeTab, setActiveTab }) {
 
 // ─── DIRECTORY TAB ───────────────────────────────────────────────────────────
 function DirectoryTab({ setActiveTab }) {
-  const [stats, setStats] = useState({ total: 147832, with_phone: 89241, top_states: [] })
+  const [stats, setStats] = useState(null)
   const [countries, setCountries] = useState([])
   const [states, setStates] = useState([])
   const [counties, setCounties] = useState([])
@@ -96,14 +96,14 @@ function DirectoryTab({ setActiveTab }) {
   const PAGE_SIZE = 50
 
   useEffect(() => {
-    fetch(`${API}/api/stats`).then(r => r.json()).then(setStats).catch(() => {})
-    fetch(`${API}/api/countries`).then(r => r.json()).then(d => setCountries(d.countries || [])).catch(() => {})
+    apiFetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {})
+    apiFetch('/api/countries').then(r => r.json()).then(d => setCountries(d.countries || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
     const p = new URLSearchParams()
     if (selectedCountry) p.set('country', selectedCountry)
-    fetch(`${API}/api/states?${p}`)
+    apiFetch(`/api/states?${p}`)
       .then(r => r.json()).then(d => setStates(d.states || [])).catch(() => {})
   }, [selectedCountry])
 
@@ -112,7 +112,7 @@ function DirectoryTab({ setActiveTab }) {
     const p = new URLSearchParams()
     if (selectedCountry) p.set('country', selectedCountry)
     p.set('state', selectedState)
-    fetch(`${API}/api/counties?${p}`)
+    apiFetch(`/api/counties?${p}`)
       .then(r => r.json()).then(d => setCounties(d.counties || [])).catch(() => {})
   }, [selectedCountry, selectedState])
 
@@ -137,7 +137,7 @@ function DirectoryTab({ setActiveTab }) {
     p.set('limit', PAGE_SIZE)
     p.set('skip', page * PAGE_SIZE)
     try {
-      const r = await fetch(`${API}/api/cemeteries?${p}`)
+      const r = await apiFetch(`/api/cemeteries?${p}`)
       const d = await r.json()
       setResults(d.data || [])
       setTotal(d.total || 0)
@@ -187,9 +187,9 @@ function DirectoryTab({ setActiveTab }) {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-12">
         {[
-          { icon: '🏛', value: (stats.total || 147832).toLocaleString(), label: 'Cemeteries' },
+          { icon: '🏛', value: (stats?.total ?? 0).toLocaleString(), label: 'Cemeteries' },
           { icon: '🌐', value: '50', label: 'States Covered' },
-          { icon: '📞', value: (stats.with_phone || 89241).toLocaleString(), label: 'Verified Contacts', color: 'text-pink-400' },
+          { icon: '📞', value: (stats?.with_phone ?? 0).toLocaleString(), label: 'Verified Contacts', color: 'text-pink-400' },
           { icon: '🕒', value: '2 hrs ago', label: 'Last Updated', color: 'text-sky-400' },
         ].map((s, i) => (
           <div key={i} className="bg-[#111111] border border-[#1e1e1e] rounded-lg p-4 text-center">
@@ -417,10 +417,10 @@ function DirectoryTab({ setActiveTab }) {
           {/* Pagination */}
           {total > PAGE_SIZE && (
             <div className="flex items-center justify-center gap-4 mt-4">
-              <button onClick={() => { setPage(p => p-1); doSearch() }} disabled={page === 0}
+              <button onClick={() => setPage(p => p-1)} disabled={page === 0}
                 className="text-xs text-[#5a5550] hover:text-[#a09a8e] disabled:opacity-30 transition-colors">← Previous</button>
               <span className="text-xs text-[#3a3a3a]">Page {page+1} of {Math.ceil(total/PAGE_SIZE)}</span>
-              <button onClick={() => { setPage(p => p+1); doSearch() }} disabled={(page+1)*PAGE_SIZE >= total}
+              <button onClick={() => setPage(p => p+1)} disabled={(page+1)*PAGE_SIZE >= total}
                 className="text-xs text-[#5a5550] hover:text-[#a09a8e] disabled:opacity-30 transition-colors">Next →</button>
             </div>
           )}
@@ -439,7 +439,7 @@ function DirectoryTab({ setActiveTab }) {
 function InsightsTab() {
   const [stats, setStats] = useState(null)
   useEffect(() => {
-    fetch(`${API}/api/stats`).then(r => r.json()).then(setStats).catch(() => {})
+    apiFetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {})
   }, [])
 
   const chartDefaults = {
@@ -461,15 +461,22 @@ function InsightsTab() {
   }
 
   const donutData = {
-    labels: ['Complete (68%)', 'Partial (22%)', 'Minimal (10%)'],
-    datasets: [{ data: [68, 22, 10], backgroundColor: ['#c9a84c', '#3a3a3a', '#2a2a2a'], borderWidth: 0 }]
+    labels: ['Verified Contacts', 'Missing Contacts'],
+    datasets: [{
+      data: [
+        stats?.with_phone ?? 0,
+        Math.max((stats?.total ?? 0) - (stats?.with_phone ?? 0), 0),
+      ],
+      backgroundColor: ['#c9a84c', '#2a2a2a'],
+      borderWidth: 0,
+    }]
   }
 
   const growthData = {
-    labels: ['Jan','Feb','Mar','Apr','May','Jun'],
+    labels: ['Records'],
     datasets: [{
       label: 'Total Records',
-      data: [100000, 108000, 115000, 122000, 132000, 147832],
+      data: [stats?.total ?? 0],
       borderColor: '#c9a84c', backgroundColor: 'rgba(201,168,76,0.08)',
       pointBackgroundColor: '#c9a84c', fill: true, tension: 0.4,
     }]

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { apiFetch } from '../../lib/api'
 
 export default function Settings() {
   const [form, setForm] = useState({
@@ -14,7 +15,7 @@ export default function Settings() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/settings', { credentials: 'include' })
+    apiFetch('/api/admin/settings', { credentials: 'include' })
       .then(async res => {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load settings')
@@ -44,7 +45,7 @@ export default function Settings() {
     setSaving(true)
     setError('')
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await apiFetch('/api/admin/settings', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
