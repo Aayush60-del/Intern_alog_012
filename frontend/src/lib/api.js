@@ -23,8 +23,14 @@ function joinUrl(base, path) {
   return `${base}${path}`
 }
 
+function shouldBypassProxy(path) {
+  // Long-running collection calls can hit Vercel proxy timeout; send directly to Render.
+  return path === '/api/collect' || path.startsWith('/api/collect?')
+}
+
 export async function apiFetch(path, options = {}) {
-  const url = joinUrl(API_BASE, path)
+  const baseForRequest = shouldBypassProxy(path) ? FALLBACK_API_BASE : API_BASE
+  const url = joinUrl(baseForRequest, path)
   const headers = new Headers(options.headers || {})
   const token = typeof window !== 'undefined' ? window.localStorage.getItem(ADMIN_TOKEN_KEY) : ''
   if (token && !headers.has('Authorization')) {

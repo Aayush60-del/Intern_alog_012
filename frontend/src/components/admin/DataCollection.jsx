@@ -56,6 +56,17 @@ export default function DataCollection() {
     setLogs(prev => [...prev, { time, msg, type }])
   }
 
+  async function readJsonSafe(response) {
+    const contentType = (response.headers.get('content-type') || '').toLowerCase()
+    if (contentType.includes('application/json')) {
+      return response.json()
+    }
+    const raw = await response.text()
+    return {
+      error: `HTTP ${response.status}: ${raw.slice(0, 160) || 'Non-JSON response'}`
+    }
+  }
+
   function setCheck(name, ok, details) {
     setHealthChecks(prev => {
       const rest = prev.filter(item => item.name !== name)
@@ -127,8 +138,8 @@ export default function DataCollection() {
           body: JSON.stringify({ state, enrich: googleEnrich, auto_clean: autoClean, limit }),
           credentials: 'include',
         })
-        const data = await res.json()
-        if (data.error) {
+        const data = await readJsonSafe(res)
+        if (!res.ok || data.error) {
           addLog(`Error: ${data.error}`, 'error')
         } else {
           addLog(`Fetched ${data.fetched} records from source providers`, 'info')
