@@ -40,8 +40,14 @@ def create_app():
 
     # Cookie settings required when frontend and backend are on different domains (Vercel ↔ Render).
     # In production (HTTPS), cookies must be Secure + SameSite=None to be sent cross-site.
-    app.config.setdefault("SESSION_COOKIE_SAMESITE", os.environ.get("SESSION_COOKIE_SAMESITE", "Lax"))
-    app.config.setdefault("SESSION_COOKIE_SECURE", os.environ.get("SESSION_COOKIE_SECURE", "").lower() == "true")
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    default_samesite = "Lax" if debug_mode else "None"
+    default_secure = False if debug_mode else True
+    app.config.setdefault("SESSION_COOKIE_SAMESITE", os.environ.get("SESSION_COOKIE_SAMESITE", default_samesite))
+    app.config.setdefault(
+        "SESSION_COOKIE_SECURE",
+        os.environ.get("SESSION_COOKIE_SECURE", str(default_secure)).lower() == "true",
+    )
 
     configured_origins = [origin.strip() for origin in os.environ.get("FRONTEND_ORIGIN", "").split(",") if origin.strip()]
     if not configured_origins:
