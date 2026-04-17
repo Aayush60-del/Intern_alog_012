@@ -20,7 +20,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-from backend.routes import *
+from routes import *
 
 try:
     from backend.db import init_db
