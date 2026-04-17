@@ -60,6 +60,7 @@ def create_app():
     CORS(
         app,
         supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization"],
         resources={
             r"/api/*": {"origins": configured_origins},
             r"/admin/*": {"origins": configured_origins},

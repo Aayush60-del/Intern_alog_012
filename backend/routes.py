@@ -12,6 +12,7 @@ import time
 
 from bson import ObjectId
 from flask import Response, g, jsonify, request, session
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 try:
     from backend.db import get_collection
@@ -43,6 +44,7 @@ def serialize_doc(doc):
 
 def register_routes(app):
     app.config.setdefault("API_LOGS", deque(maxlen=API_LOG_LIMIT))
+    token_serializer = URLSafeTimedSerializer(app.secret_key, salt="admin-auth")
 
     def build_website_fallback(doc):
         name = (doc.get("name") or "Cemetery").strip()
@@ -111,8 +113,28 @@ def register_routes(app):
         )
         return clean
 
+    def issue_admin_token():
+        return token_serializer.dumps({"role": "admin"})
+
+    def is_valid_admin_token(token):
+        if not token:
+            return False
+        try:
+            payload = token_serializer.loads(token, max_age=60 * 60 * 24 * 7)
+            return payload.get("role") == "admin"
+        except (BadSignature, SignatureExpired):
+            return False
+
+    def extract_bearer_token():
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.lower().startswith("bearer "):
+            return ""
+        return auth_header.split(" ", 1)[1].strip()
+
     def is_admin():
-        return bool(session.get("admin_logged_in"))
+        if bool(session.get("admin_logged_in")):
+            return True
+        return is_valid_admin_token(extract_bearer_token())
 
     def admin_required(view):
         @wraps(view)
@@ -302,7 +324,7 @@ def register_routes(app):
         password = data.get("password", "")
         if password == ADMIN_PASSWORD:
             session["admin_logged_in"] = True
-            return jsonify({"success": True})
+            return jsonify({"success": True, "token": issue_admin_token()})
         return jsonify({"success": False, "error": "Invalid password"}), 401
 
     @app.route("/admin/logout")

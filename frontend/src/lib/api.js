@@ -13,6 +13,7 @@ function resolveApiBase() {
 }
 
 export const API_BASE = resolveApiBase()
+const ADMIN_TOKEN_KEY = 'cemetery_admin_token'
 
 function joinUrl(base, path) {
   if (!base) return path
@@ -24,6 +25,29 @@ function joinUrl(base, path) {
 
 export async function apiFetch(path, options = {}) {
   const url = joinUrl(API_BASE, path)
-  return fetch(url, options)
+  const headers = new Headers(options.headers || {})
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem(ADMIN_TOKEN_KEY) : ''
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  const requestOptions = {
+    ...options,
+    headers,
+  }
+
+  // Cross-site cookies are unreliable in private mode; rely on bearer token auth.
+  delete requestOptions.credentials
+
+  return fetch(url, requestOptions)
+}
+
+export function setAdminToken(token) {
+  if (typeof window === 'undefined') return
+  if (!token) {
+    window.localStorage.removeItem(ADMIN_TOKEN_KEY)
+    return
+  }
+  window.localStorage.setItem(ADMIN_TOKEN_KEY, token)
 }
 

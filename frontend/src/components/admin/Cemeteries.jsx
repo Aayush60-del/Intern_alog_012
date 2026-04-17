@@ -148,7 +148,7 @@ export default function Cemeteries() {
     if (search.trim()) p.set('search', search.trim())
     const path = kind === 'counties' ? '/api/export/counties.csv' : '/api/export/cemeteries.csv'
     try {
-      const res = await apiFetch(`${path}?${p.toString()}`, { credentials: 'include' })
+      const res = await apiFetch(`${path}?${p.toString()}`)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'CSV export failed.')
@@ -169,12 +169,12 @@ export default function Cemeteries() {
   return (
     <div>
       {/* ── Header ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-5">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="font-display text-2xl font-semibold text-[#e8e4dc]">Cemeteries</h1>
           <p className="text-[#5a5550] text-sm">Auto-collected cemetery records via OSM pipeline → saved to MongoDB Atlas.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => exportFile('counties')}
             className="flex items-center gap-1.5 bg-[#111111] border border-[#2a2a2a] text-[#a09a8e] text-xs px-3 py-2 rounded-lg hover:border-[#3a3a3a] transition-colors"

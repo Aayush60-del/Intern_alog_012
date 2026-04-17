@@ -28,7 +28,7 @@ const SCHEDULE_DAYS = [
   { key: 'sat', label: 'Saturday' },
 ]
 
-function emptySchedule() {
+function createDefaultSchedule() {
   return SCHEDULE_DAYS.reduce((acc, day) => {
     acc[day.key] = { closed: true, open: '09:00', close: '17:00' }
     return acc
@@ -36,15 +36,10 @@ function emptySchedule() {
 }
 
 function parseOpeningHoursToSchedule(openingHours) {
-  const schedule = emptySchedule()
+  const schedule = createDefaultSchedule()
   if (!openingHours || typeof openingHours !== 'string') return schedule
 
-  const segments = openingHours
-    .split(';')
-    .map(part => part.trim())
-    .filter(Boolean)
-
-  const keyMap = {
+  const dayAlias = {
     mon: 'mon', monday: 'mon',
     tue: 'tue', tues: 'tue', tuesday: 'tue',
     wed: 'wed', wednesday: 'wed',
@@ -53,18 +48,16 @@ function parseOpeningHoursToSchedule(openingHours) {
     sat: 'sat', saturday: 'sat',
   }
 
-  segments.forEach(segment => {
-    const [dayRaw, hoursRaw] = segment.split(':').map(x => (x || '').trim())
-    if (!dayRaw) return
-    const dayKey = keyMap[dayRaw.toLowerCase()]
+  const chunks = openingHours.split(';').map(part => part.trim()).filter(Boolean)
+  chunks.forEach(chunk => {
+    const [dayRaw, hoursRaw] = chunk.split(':').map(v => (v || '').trim())
+    const dayKey = dayAlias[(dayRaw || '').toLowerCase()]
     if (!dayKey || !hoursRaw) return
-
     if (hoursRaw.toLowerCase() === 'closed') {
       schedule[dayKey] = { ...schedule[dayKey], closed: true }
       return
     }
-
-    const [open, close] = hoursRaw.split('-').map(x => (x || '').trim())
+    const [open, close] = hoursRaw.split('-').map(v => (v || '').trim())
     if (!open || !close) return
     schedule[dayKey] = { closed: false, open, close }
   })
@@ -72,7 +65,7 @@ function parseOpeningHoursToSchedule(openingHours) {
   return schedule
 }
 
-function scheduleToOpeningHours(schedule) {
+function serializeSchedule(schedule) {
   return SCHEDULE_DAYS.map(({ key, label }) => {
     const day = schedule[key]
     if (!day || day.closed) return `${label}: Closed`
@@ -89,7 +82,7 @@ export default function AddCemetery() {
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
   const [success, setSuccess] = useState(false)
-  const [openingSchedule, setOpeningSchedule] = useState(emptySchedule())
+  const [schedule, setSchedule] = useState(createDefaultSchedule())
 
   useEffect(() => {
     if (!isEdit) return
@@ -103,14 +96,13 @@ export default function AddCemetery() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load cemetery')
         if (!ignore) {
-          const parsedSchedule = parseOpeningHoursToSchedule(data.opening_hours)
           setForm({
             ...EMPTY,
             ...data,
             latitude: data.latitude ?? '',
             longitude: data.longitude ?? '',
           })
-          setOpeningSchedule(parsedSchedule)
+          setSchedule(parseOpeningHoursToSchedule(data.opening_hours))
         }
       } catch (err) {
         if (!ignore) setError(err.message || 'Failed to load cemetery')
@@ -126,10 +118,13 @@ export default function AddCemetery() {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   }
 
-  function updateSchedule(dayKey, field, value) {
-    setOpeningSchedule(prev => ({
+  function setScheduleField(dayKey, field, value) {
+    setSchedule(prev => ({
       ...prev,
-      [dayKey]: { ...prev[dayKey], [field]: value }
+      [dayKey]: {
+        ...prev[dayKey],
+        [field]: value,
+      },
     }))
   }
 
@@ -141,11 +136,14 @@ export default function AddCemetery() {
 
     setSaving(true)
     try {
-      const opening_hours = scheduleToOpeningHours(openingSchedule)
+      const payload = {
+        ...form,
+        opening_hours: serializeSchedule(schedule),
+      }
       const res = await apiFetch(isEdit ? `/api/cemeteries/${id}` : '/api/cemeteries', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, opening_hours }),
+        body: JSON.stringify(payload),
         credentials: 'include',
       })
       const data = await res.json()
@@ -193,7 +191,7 @@ export default function AddCemetery() {
   return (
     <div className="min-h-screen bg-[#080808]">
       {/* ── Top bar ── */}
-      <div className="sticky top-0 z-10 bg-[#080808]/95 backdrop-blur border-b border-[#161616] px-4 md:px-8 py-3 flex flex-col md:flex-row gap-3 md:gap-0 md:items-center md:justify-between">
+      <div className="sticky top-0 z-10 bg-[#080808]/95 backdrop-blur border-b border-[#161616] px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/admin/cemeteries')}
@@ -235,7 +233,7 @@ export default function AddCemetery() {
       </div>
 
       {/* ── Body ── */}
-      <div className="max-w-4xl mx-auto px-4 md:px-8 py-6 md:py-10">
+      <div className="max-w-4xl mx-auto px-8 py-10">
 
         {/* Success banner */}
         {success && (
@@ -270,7 +268,7 @@ export default function AddCemetery() {
               </p>
               <div className="space-y-4">
                 <Field label="Cemetery Name" name="name" required placeholder="e.g. Oakwood Cemetery" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <Field label="Country" name="country" placeholder="United States" />
                   <Field label="Type" name="type">
                     <select id="f-type" name="type" value={form.type} onChange={set} className={inp}>
@@ -291,7 +289,7 @@ export default function AddCemetery() {
                 Location
               </p>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <Field label="State" name="state" required>
                     <select id="f-state" name="state" value={form.state} onChange={set} className={inp} required>
                       <option value="">— Select state —</option>
@@ -316,20 +314,20 @@ export default function AddCemetery() {
                 <Field label="Phone" name="phone" placeholder="e.g. (512) 472-5100" />
                 <Field label="Website" name="website" placeholder="https://..." />
                 <div>
-                  <label className={lbl}>Opening Hours (24-hour format)</label>
+                  <label className={lbl}>Opening Hours (Monday-Saturday, 24h)</label>
                   <div className="overflow-x-auto rounded-xl border border-[#1a1a1a]">
-                    <table className="w-full min-w-[540px] text-xs">
+                    <table className="w-full min-w-[520px] text-xs">
                       <thead className="bg-[#101010]">
                         <tr>
-                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Day</th>
-                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Open</th>
-                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Close</th>
-                          <th className="px-3 py-2 text-left text-[#5a5550] font-semibold">Closed</th>
+                          <th className="px-3 py-2 text-left text-[#5a5550]">Day</th>
+                          <th className="px-3 py-2 text-left text-[#5a5550]">Open</th>
+                          <th className="px-3 py-2 text-left text-[#5a5550]">Close</th>
+                          <th className="px-3 py-2 text-left text-[#5a5550]">Closed</th>
                         </tr>
                       </thead>
                       <tbody>
                         {SCHEDULE_DAYS.map(({ key, label }) => {
-                          const day = openingSchedule[key]
+                          const day = schedule[key]
                           return (
                             <tr key={key} className="border-t border-[#1a1a1a]">
                               <td className="px-3 py-2 text-[#a09a8e]">{label}</td>
@@ -338,8 +336,8 @@ export default function AddCemetery() {
                                   type="time"
                                   value={day.open}
                                   disabled={day.closed}
-                                  onChange={e => updateSchedule(key, 'open', e.target.value)}
-                                  className={`${inp} py-2`}
+                                  onChange={e => setScheduleField(key, 'open', e.target.value)}
+                                  className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-1.5 text-[#e8e4dc] disabled:opacity-40"
                                 />
                               </td>
                               <td className="px-3 py-2">
@@ -347,8 +345,8 @@ export default function AddCemetery() {
                                   type="time"
                                   value={day.close}
                                   disabled={day.closed}
-                                  onChange={e => updateSchedule(key, 'close', e.target.value)}
-                                  className={`${inp} py-2`}
+                                  onChange={e => setScheduleField(key, 'close', e.target.value)}
+                                  className="w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-1.5 text-[#e8e4dc] disabled:opacity-40"
                                 />
                               </td>
                               <td className="px-3 py-2">
@@ -356,7 +354,7 @@ export default function AddCemetery() {
                                   <input
                                     type="checkbox"
                                     checked={day.closed}
-                                    onChange={e => updateSchedule(key, 'closed', e.target.checked)}
+                                    onChange={e => setScheduleField(key, 'closed', e.target.checked)}
                                     className="accent-amber-500"
                                   />
                                   Closed
